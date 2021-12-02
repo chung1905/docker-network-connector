@@ -3,9 +3,13 @@ set -u -o pipefail
 
 main_con_name=caddy
 
+log() {
+	echo "$(date -R)": "$1"
+}
+
 docker_network_join() {
 	docker network connect -- "$1" "$2"
-	echo connect $main_con_name to "$1"
+	log connect $main_con_name to "$1"
 }
 
 docker_network_disconnect_if_alone() {
@@ -13,7 +17,7 @@ docker_network_disconnect_if_alone() {
 	if [ "$con_name" == "$2" ]
 	then
 		docker network disconnect -- "$1" "$2"
-		echo disconnect "$2" from "$1"
+		log disconnect "$2" from "$1"
 	fi
 }
 
@@ -24,7 +28,7 @@ while read -r network; do
 done
 
 event_format='{{if .Action}}{{slice .Action 0 1}} {{.Actor.Attributes.name}}{{end}}'
-echo "Waiting event..."
+log "Waiting event..."
 docker events -f type=network -f event=create -f event=disconnect --format "$event_format" | \
 while read -r event; do
 	e=${event::1}
@@ -37,6 +41,6 @@ while read -r event; do
 			docker_network_disconnect_if_alone "$id" $main_con_name
 			;;
 		*)
-			echo Unknown event: \'"$event"\'
+			log Unknown event: \'"$event"\'
 	esac
 done
