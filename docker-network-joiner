@@ -2,7 +2,6 @@
 set -e -u -o pipefail
 
 main_con_name=caddy
-#event_format='{{if .Action}}{{slice .Action 0 1}} {{.Actor.ID}}{{end}}'
 event_format='{{if .Action}}{{slice .Action 0 1}} {{.Actor.Attributes.name}}{{end}}'
 (docker events -f type=network -f event=create -f event=disconnect --format "$event_format") | \
 while read -r event; do
@@ -14,19 +13,11 @@ while read -r event; do
 			echo connect $main_con_name to "$id"
 			;;
 		d)
-			cons_len=$(docker network inspect -f "{{ len .Containers }}" -- "$id" || echo 0)
-			if [ "$cons_len" -eq 1 ]
+			con_name=$(docker network inspect -f "{{ range .Containers }}{{ .Name }}{{ end }}" -- "$id" || echo '')
+			if [ "$con_name" == $main_con_name ]
 			then
-				con_name=$(docker network inspect -f "{{ range .Containers }}{{ .Name }}{{ end }}" -- "$id" || echo '')
-				if [ "$con_name" == $main_con_name ]
-				then
-					docker docker network disconnect -- "$id" $main_con_name || true
-					echo disconnect $main_con_name from "$id"
-				else
-					echo "$con_name" mismached
-				fi
-			else
-				echo "con len is '$cons_len' != 1"
+				docker network disconnect -- "$id" $main_con_name || true
+				echo disconnect $main_con_name from "$id"
 			fi
 			;;
 		*)
