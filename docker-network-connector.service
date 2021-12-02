@@ -1,0 +1,11 @@
+[Unit]
+Description=Automatically connect/disconnect a container to all docker bridge networks
+Requires=docker.service
+After=docker.service
+PartOf=docker.service
+
+[Service]
+ExecStart=/usr/local/bin/docker-network-connector
+
+[Install]
+WantedBy=docker.service
