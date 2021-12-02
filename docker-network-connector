@@ -9,8 +9,22 @@ log() {
 
 is_joined() {
 	local tmp
-	tmp=$(docker inspect "$2" --format "{{index .NetworkSettings.Networks \"$1\"}}")
+	tmp=$(docker container inspect "$2" --format "{{index .NetworkSettings.Networks \"$1\"}}")
 	if [ "$tmp" == "<nil>" ]
+	then
+		return 1
+	fi
+	return 0
+}
+
+list_network() {
+	docker network ls --format '{{.Name}}' --filter driver=bridge | (grep -vx -- bridge || true)
+}
+
+is_docker_network_exists() {
+	local n
+	n=$(list_network | grep -x "$1")
+	if [ "$n" == "" ]
 	then
 		return 1
 	fi
@@ -29,6 +43,11 @@ docker_network_join() {
 }
 
 docker_network_disconnect_if_alone() {
+	if ! is_docker_network_exists "$1"
+	then
+		log skip: network "$1" not exists
+		return 0
+	fi
 	local con_name
 	con_name=$(docker network inspect -f "{{ range .Containers }}{{ .Name }}{{ end }}" -- "$1")
 	if [ "$con_name" == "$2" ]
@@ -36,10 +55,6 @@ docker_network_disconnect_if_alone() {
 		docker network disconnect -- "$1" "$2"
 		log disconnect: "$2" from "$1"
 	fi
-}
-
-list_network() {
-	docker network ls --format '{{.Name}}' --filter driver=bridge | (grep -vx -- bridge || true)
 }
 
 before_watch() {
@@ -58,7 +73,19 @@ before_watch
 
 readonly event_format='{{if .Action}}{{slice .Action 0 1}} {{.Actor.Attributes.name}}{{end}}'
 log "info: Waiting event..."
-docker events -f type=network -f event=create -f event=disconnect --format "$event_format" | \
+
+###
+# Listen to 'connect' instead of 'create' because 'create' is quite buggy
+# Some weird 'disconnect' events is fired after a network is just created
+#
+# Tested on a low-end computer:
+# ~$ docker -v
+# Docker version 20.10.11, build dea9396
+# ~$ docker compose version
+# Docker Compose version v2.1.1
+###
+
+docker events -f type=network -f event=connect -f event=disconnect --format "$event_format" | \
 while read -r event; do
 	e=${event::1}
 	id=${event:2}
