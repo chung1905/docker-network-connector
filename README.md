@@ -13,11 +13,11 @@ file over yaml, but more than that, I don't want to mount my `docker.sock` to co
   - Auto SSL with Let's Encrypt or ZeroSSL.
 
 But nginx/caddy is not born for Docker, you have to use one:
-  - Expose docker container port so we can proxy to something like localhost:8989
-  - Set container IP to static, we can proxy to 10.5.0.1:port
+  - Expose docker container port so we can proxy to something like `localhost:8989`
+  - Set container IP to static, we can proxy to `10.5.0.1:port`
   - Use [this /etc/hosts update script](https://stackoverflow.com/a/63656003) with network_mode="host",
 which is pretty good but we need to restart proxy server container to update container's hosts file.
-So we can proxy to container_name:port.
+So we can proxy to `container_name:port`.
 
 With the inspiration of the last script, I wrote this.
 This script listen to `docker events`, and connect my caddy container to all networks.
