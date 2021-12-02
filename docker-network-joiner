@@ -2,15 +2,26 @@
 set -e -u -o pipefail
 
 main_con_name=caddy
+
+docker_network_join() {
+	docker network connect -- "$1" "$2"
+	echo connect $main_con_name to "$1"
+}
+
+docker network ls --format '{{.Name}}' --filter driver=bridge | grep -vx -- bridge | \
+while read -r network; do
+    docker_network_join "$network" $main_con_name || true
+done
+
 event_format='{{if .Action}}{{slice .Action 0 1}} {{.Actor.Attributes.name}}{{end}}'
-(docker events -f type=network -f event=create -f event=disconnect --format "$event_format") | \
+echo "Waiting event..."
+docker events -f type=network -f event=create -f event=disconnect --format "$event_format" | \
 while read -r event; do
 	e=${event::1}
 	id=${event:2}
 	case $e in
 		c)
-			docker network connect -- "$id" $main_con_name
-			echo connect $main_con_name to "$id"
+			docker_network_join "$id" $main_con_name
 			;;
 		d)
 			con_name=$(docker network inspect -f "{{ range .Containers }}{{ .Name }}{{ end }}" -- "$id" || echo '')
@@ -21,6 +32,6 @@ while read -r event; do
 			fi
 			;;
 		*)
-			echo "$event"
+			echo Unknown event: \'"$event"\'
 	esac
 done
