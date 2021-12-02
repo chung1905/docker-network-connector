@@ -2,6 +2,15 @@ NAME = docker-network-connector
 BIN_DIR = /usr/local/bin
 SYSTEMD_DIR = /etc/systemd/system
 
+status:
+	systemctl status $(NAME).service
+
+restart:
+	sudo systemctl restart $(NAME).service
+
+log:
+	journalctl -u $(NAME).service
+
 install:
 	sudo cp `pwd`/$(NAME) $(BIN_DIR)
 	sudo cp `pwd`/$(NAME).service $(SYSTEMD_DIR)
