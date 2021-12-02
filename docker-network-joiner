@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e -u -o pipefail
+set -u -o pipefail
 
 main_con_name=caddy
 
@@ -8,9 +8,21 @@ docker_network_join() {
 	echo connect $main_con_name to "$1"
 }
 
+docker_network_disconnect_if_alone() {
+	con_name=$(docker network inspect -f "{{ range .Containers }}{{ .Name }}{{ end }}" -- "$1")
+	if [ "$con_name" == "$2" ]
+	then
+		docker network disconnect -- "$1" "$2"
+		echo disconnect "$2" from "$1"
+		docker network rm "$1"
+		echo remove network "$1"
+	fi
+}
+
 docker network ls --format '{{.Name}}' --filter driver=bridge | grep -vx -- bridge | \
 while read -r network; do
-    docker_network_join "$network" $main_con_name || true
+	docker_network_disconnect_if_alone "$network" $main_con_name
+	docker_network_join "$network" $main_con_name
 done
 
 event_format='{{if .Action}}{{slice .Action 0 1}} {{.Actor.Attributes.name}}{{end}}'
@@ -24,12 +36,7 @@ while read -r event; do
 			docker_network_join "$id" $main_con_name
 			;;
 		d)
-			con_name=$(docker network inspect -f "{{ range .Containers }}{{ .Name }}{{ end }}" -- "$id" || echo '')
-			if [ "$con_name" == $main_con_name ]
-			then
-				docker network disconnect -- "$id" $main_con_name || true
-				echo disconnect $main_con_name from "$id"
-			fi
+			docker_network_disconnect_if_alone "$id" $main_con_name
 			;;
 		*)
 			echo Unknown event: \'"$event"\'
