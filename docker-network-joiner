@@ -14,8 +14,6 @@ docker_network_disconnect_if_alone() {
 	then
 		docker network disconnect -- "$1" "$2"
 		echo disconnect "$2" from "$1"
-		docker network rm "$1"
-		echo remove network "$1"
 	fi
 }
 
