@@ -7,13 +7,25 @@ log() {
     echo "$(date -R)": "$@"
 }
 
-is_joined() {
+is_docker_container_exists() {
+    docker container inspect -- "$1" > /dev/null 2>&1
+    return $?
+}
+
+is_joinable() {
+    if ! is_docker_container_exists "$2"
+    then
+        log warn: container "$2" not exists
+        return 1
+    fi
+
     local tmp
     tmp=$(docker container inspect "$2" --format "{{index .NetworkSettings.Networks \"$1\"}}")
-    if [ "$tmp" == "<nil>" ]
+    if [ "$tmp" != "<nil>" ]
     then
         return 1
     fi
+
     return 0
 }
 
@@ -32,7 +44,7 @@ is_docker_network_exists() {
 }
 
 docker_network_join() {
-    if is_joined "$1" "$2"
+    if ! is_joinable "$1" "$2"
     then
         log skip: "$2" already connected to "$1"
         return 0
@@ -43,11 +55,18 @@ docker_network_join() {
 }
 
 docker_network_disconnect_if_alone() {
+    if ! is_docker_container_exists "$2"
+    then
+        log warn: container "$2" not exists
+        return 0
+    fi
+
     if ! is_docker_network_exists "$1"
     then
         log skip: network "$1" not exists
         return 0
     fi
+
     local con_name
     con_name=$(docker network inspect -f "{{ range .Containers }}{{ .Name }}{{ end }}" -- "$1")
     if [ "$con_name" == "$2" ]
@@ -62,7 +81,7 @@ before_watch() {
         docker_network_disconnect_if_alone "$network" $main_con_name
     done
 
-    log prune "$(docker network prune -f)"
+    log prune: "$(docker network prune -f | tr '\n' ' ')"
 
     list_network | while read -r network; do
         docker_network_join "$network" $main_con_name
