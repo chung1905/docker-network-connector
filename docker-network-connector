@@ -55,12 +55,6 @@ docker_network_join() {
 }
 
 docker_network_disconnect_if_alone() {
-    if [ "${main_con_name}_default" == "$1" ]
-    then
-        log skip: "$1" is default network
-        return 0
-    fi
-
     if ! is_docker_container_exists "$2"
     then
         log warn: container "$2" not exists
