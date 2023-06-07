@@ -81,8 +81,6 @@ before_watch() {
         docker_network_disconnect_if_alone "$network" $main_con_name
     done
 
-    log prune: "$(docker network prune -f | tr '\n' ' ')"
-
     list_network | while read -r network; do
         docker_network_join "$network" $main_con_name
     done
